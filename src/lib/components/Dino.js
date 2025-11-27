@@ -46,10 +46,28 @@ class ChromeDinoComponent extends React.Component {
         runner.resizeTimerId_ = null;
       }
 
-      // Close audio context
-      if (runner.audioContext && runner.audioContext.close) {
-        runner.audioContext.close();
+      // Properly cleanup audio context
+      if (runner.audioContext) {
+        try {
+          // Suspend first to immediately stop all audio processing
+          if (runner.audioContext.state !== 'closed') {
+            runner.audioContext.suspend().then(() => {
+              runner.audioContext.close().catch(() => {});
+            }).catch(() => {});
+          }
+        } catch (e) {
+          // Context might already be closed or in invalid state
+        }
+        runner.audioContext = null;
       }
+
+      // Clear sound buffers to prevent them from being played
+      if (runner.soundFx) {
+        runner.soundFx = {};
+      }
+
+      // Clear audio buffer
+      runner.audioBuffer = null;
 
       // Remove DOM elements created by Runner
       if (runner.containerEl && runner.containerEl.parentNode) {
