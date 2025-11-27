@@ -30,6 +30,19 @@ class ChromeDinoComponent extends React.Component {
     const runner = window.runner;
 
     if (runner) {
+      // FIRST: Disable the playSound function immediately to prevent any more sounds
+      runner.playSound = function() {};
+
+      // Clear sound buffers immediately
+      runner.soundFx = {};
+      runner.audioBuffer = null;
+
+      // Cancel any pending animation frame
+      if (runner.raqId) {
+        cancelAnimationFrame(runner.raqId);
+        runner.raqId = 0;
+      }
+
       // Stop animation frame
       if (runner.stop) {
         runner.stop();
@@ -40,6 +53,18 @@ class ChromeDinoComponent extends React.Component {
         runner.stopListening();
       }
 
+      // Remove window event listeners that stopListening doesn't handle
+      // These are added in init() and startGame() with bound functions
+      // Since we can't remove bound functions easily, we'll remove by overriding handlers
+      if (runner.debounceResize) {
+        window.removeEventListener('resize', runner.debounceResize);
+      }
+      if (runner.onVisibilityChange) {
+        window.removeEventListener('visibilitychange', runner.onVisibilityChange);
+        window.removeEventListener('blur', runner.onVisibilityChange);
+        window.removeEventListener('focus', runner.onVisibilityChange);
+      }
+
       // Clear resize timer if running
       if (runner.resizeTimerId_) {
         clearInterval(runner.resizeTimerId_);
@@ -48,11 +73,12 @@ class ChromeDinoComponent extends React.Component {
 
       // Properly cleanup audio context
       if (runner.audioContext) {
+        const audioCtx = runner.audioContext;
         try {
           // Suspend first to immediately stop all audio processing
-          if (runner.audioContext.state !== 'closed') {
-            runner.audioContext.suspend().then(() => {
-              runner.audioContext.close().catch(() => {});
+          if (audioCtx.state !== 'closed') {
+            audioCtx.suspend().then(() => {
+              audioCtx.close().catch(() => {});
             }).catch(() => {});
           }
         } catch (e) {
@@ -60,14 +86,6 @@ class ChromeDinoComponent extends React.Component {
         }
         runner.audioContext = null;
       }
-
-      // Clear sound buffers to prevent them from being played
-      if (runner.soundFx) {
-        runner.soundFx = {};
-      }
-
-      // Clear audio buffer
-      runner.audioBuffer = null;
 
       // Remove DOM elements created by Runner
       if (runner.containerEl && runner.containerEl.parentNode) {
@@ -84,6 +102,9 @@ class ChromeDinoComponent extends React.Component {
 
       delete window.runner;
     }
+
+    // Also delete the Runner constructor to ensure fresh state on remount
+    delete window.Runner;
 
     // Remove the script elements from the DOM
     if (this.dinoScriptContainer && this.dinoScriptContainer.parentNode) {
