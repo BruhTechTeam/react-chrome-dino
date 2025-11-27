@@ -27,13 +27,43 @@ class ChromeDinoComponent extends React.Component {
   }
 
   componentWillUnmount() {
-    // Stop the game runner if it exists
-    if (window.runner && window.runner.stop) {
-      window.runner.stop();
-    }
-    
-    // Clean up the runner instance
-    if (window.runner) {
+    const runner = window.runner;
+
+    if (runner) {
+      // Stop animation frame
+      if (runner.stop) {
+        runner.stop();
+      }
+
+      // Remove event listeners (call the existing stopListening method)
+      if (runner.stopListening) {
+        runner.stopListening();
+      }
+
+      // Clear resize timer if running
+      if (runner.resizeTimerId_) {
+        clearInterval(runner.resizeTimerId_);
+        runner.resizeTimerId_ = null;
+      }
+
+      // Close audio context
+      if (runner.audioContext && runner.audioContext.close) {
+        runner.audioContext.close();
+      }
+
+      // Remove DOM elements created by Runner
+      if (runner.containerEl && runner.containerEl.parentNode) {
+        runner.containerEl.parentNode.removeChild(runner.containerEl);
+      }
+      if (runner.touchController && runner.touchController.parentNode) {
+        runner.touchController.parentNode.removeChild(runner.touchController);
+      }
+
+      // Clear the singleton instance so it can be recreated on remount
+      if (window.Runner) {
+        window.Runner.instance_ = null;
+      }
+
       delete window.runner;
     }
 
